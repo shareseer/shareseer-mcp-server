@@ -1,0 +1,55 @@
+server:
+  host: "0.0.0.0"
+  port: 8081
+  https: false
+
+# ShareSeer Data Source Configuration
+shareseer:
+  api_endpoint: "https://api.shareseer.com"
+  data_source: "redis"  # Internal data source type
+  connection:
+    host: "${SHARESEER_DATA_HOST:-localhost}"
+    port: "${SHARESEER_DATA_PORT:-6379}"
+    database: "${SHARESEER_DATA_DB:-1}"
+    read_only: true
+
+# User Authentication
+authentication:
+  provider: "shareseer"
+  api_key_prefix: "sk-shareseer-"
+  validation_endpoint: "https://api.shareseer.com/auth/validate"
+
+# Rate Limiting (Tier-based)
+rate_limiting:
+  free_tier:
+    requests_per_day: 50
+    requests_per_hour: 10
+  premium_tier:
+    requests_per_day: 1000
+    requests_per_hour: 100
+  pro_tier:
+    requests_per_day: 10000
+    requests_per_hour: 1000
+
+# Tool Access Control
+access_control:
+  free_tier:
+    data_range_months: 6
+    tools:
+      - "get_company_info"
+      - "get_company_filings"
+      - "get_insider_transactions"
+      - "get_largest_daily_transactions"
+      - "get_largest_weekly_transactions"
+    limitations:
+      max_results: 3
+      pagination: false
+      historical_data: false
+  premium_tier:
+    data_range_months: 120
+    tools: ["*"]
+    limitations: {}
+  pro_tier:
+    data_range_months: -1
+    tools: ["*"]
+    limitations: {}
