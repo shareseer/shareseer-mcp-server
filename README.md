@@ -119,5 +119,5 @@ Love the ShareSeer MCP server? Here's how you can help:
 
 **Built with ❤️  by the ShareSeer team**
 
-[Website](https://shareseer.com) • [Twitter](https://twitter.com/shareseer) • [Email](mailto:support@shareseer.com)
+[Website](https://shareseer.com) • [X](https://x.com/shareseer) • [Email](mailto:contact@shareseer.com)
 
