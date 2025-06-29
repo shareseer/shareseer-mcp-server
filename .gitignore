@@ -1,0 +1,66 @@
+# Binaries
+shareseer-mcp
+shareseer-mcp-*
+*.exe
+
+# Go build artifacts
+*.o
+*.a
+*.so
+
+# Test coverage
+*.out
+c.out
+
+# Go modules
+go.sum
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Configuration files with secrets
+config.yaml
+*.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary directories
+tmp/
+temp/
+
+# Build directories
+dist/
+build/
+
+# Release artifacts
+checksums.txt
+release/
+
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+
+# ShareSeer specific
+# Note: The actual implementation files are kept private
+internal/shareseer/
+internal/redis/client.go
+configs/config.yaml

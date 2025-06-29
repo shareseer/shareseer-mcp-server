@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            name: shareseer-mcp-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            name: shareseer-mcp-darwin-arm64
+          - goos: linux
+            goarch: amd64
+            name: shareseer-mcp-linux-amd64
+          - goos: linux
+            goarch: arm64
+            name: shareseer-mcp-linux-arm64
+          - goos: windows
+            goarch: amd64
+            name: shareseer-mcp-windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.name }} ./cmd/server
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p ./release
+          find ./artifacts -type f -exec cp {} ./release/ \;
+          ls -la ./release/
+
+      - name: Create checksums
+        run: |
+          cd ./release
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Extract release notes
+        id: extract_notes
+        run: |
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract notes for current version from CHANGELOG.md
+            awk '/^## / {if (found) exit; if ($0 ~ /'"${GITHUB_REF#refs/tags/}"'/) found=1; next} found {print}' CHANGELOG.md > release_notes.md
+          else
+            echo "Release ${{ github.ref_name }}" > release_notes.md
+            echo "" >> release_notes.md
+            echo "🚀 **New Features:**" >> release_notes.md
+            echo "- ShareSeer MCP server with comprehensive SEC data access" >> release_notes.md
+            echo "- Company information and filings lookup" >> release_notes.md
+            echo "- Insider trading transactions with pagination" >> release_notes.md
+            echo "- Largest daily and weekly transaction tracking" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "💎 **Subscription Tiers:**" >> release_notes.md
+            echo "- Free: 10 requests/hour, 50/day" >> release_notes.md
+            echo "- Premium: 100 requests/hour, 1K/day" >> release_notes.md
+            echo "- Pro: 1K requests/hour, 10K/day" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "📦 **Installation:**" >> release_notes.md
+            echo '```bash' >> release_notes.md
+            echo 'curl -sSL https://raw.githubusercontent.com/shareseer/mcp-server/main/install.sh | sh' >> release_notes.md
+            echo '```' >> release_notes.md
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./release/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: shareseer/mcp-server
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
